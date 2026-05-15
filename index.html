@@ -360,7 +360,6 @@ const SankeyRenderer = (function() {
     src_schedc: "Schedule C net profit",
     mid_w: "W-2 gross wages",
     mid_erfica: "Employer FICA",
-    mid_ps: "Profit-sharing",
     mid_k1: "K-1 distribution",
     sink_401k_ed: "401(k) ED",
     sink_401k_ps: "401(k) PS",
@@ -390,7 +389,6 @@ const SankeyRenderer = (function() {
     if (passive > 0) add("src_passive");
     if (schedC > 0) add("src_schedc");
     if (v.W > 0) { add("mid_w"); add("mid_erfica"); }
-    if (v.PS > 0) add("mid_ps");
     if (v.K1 > 0) add("mid_k1");
     if (v.ED > 0) add("sink_401k_ed");
     if (v.PS > 0) add("sink_401k_ps");
@@ -417,8 +415,7 @@ const SankeyRenderer = (function() {
       link("sink_box1", "sink_fed_tax", taxBox1);
       link("sink_box1", "sink_takehome", Math.max(0, d.box1 - d.eeFica - taxBox1));
     }
-    link("src_x", "mid_ps", v.PS);
-    link("mid_ps", "sink_401k_ps", v.PS);
+    link("src_x", "sink_401k_ps", v.PS);
     link("src_x", "mid_k1", v.K1);
     link("mid_k1", "sink_fed_tax", taxK1);
     link("mid_k1", "sink_takehome", Math.max(0, v.K1 - taxK1));
