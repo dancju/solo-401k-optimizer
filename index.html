@@ -19,20 +19,242 @@
   <script src="vendor/yalps.min.js"></script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const p = document.querySelector('#boot-msg');
-      const ok =
-        typeof YALPS === 'object' &&
-        typeof YALPS.solve === 'function' &&
-        typeof d3 === 'object' &&
-        typeof d3.sankey === 'function';
-      if (p) {
-        p.textContent = ok
-          ? `Vendors loaded \u2713 YALPS.solve=${typeof YALPS.solve}, d3.sankey=${typeof d3.sankey}`
-          : `Vendor load FAILED: YALPS=${typeof YALPS}, d3=${typeof d3}, d3.sankey=${typeof d3?.sankey}`;
-        if (!ok) p.style.color = 'red';
-      }
-    });
+const TaxConstants = (function() {
+  const STD_DED = { MFJ: 32200, QW: 32200, HoH: 24150, Single: 16100 };
+  const BRACKET_TOPS = {
+    MFJ:    [24800, 100800, 211400, 403550],
+    QW:     [24800, 100800, 211400, 403550],
+    Single: [12400,  50400, 105700, 201775],
+    HoH:    [17700,  67450, 108950, 201775],
+  };
+  const BRACKET_RATES = [0.10, 0.12, 0.22, 0.24];
+
+  function bracketWidths(fs) {
+    const tops = BRACKET_TOPS[fs];
+    if (!tops) throw new Error("Unknown filing status: " + fs);
+    const w = [tops[0]];
+    for (let i = 1; i < tops.length; i++) w.push(tops[i] - tops[i - 1]);
+    return w;
+  }
+
+  return {
+    YEAR: 2026,
+    ED_MAX: 24500,            // §402(g)(1)
+    SEC415_CAP: 72000,        // §415(c)(1)(A)
+    COMP_CAP_401A17: 360000,  // §401(a)(17)
+    PS_RATE: 0.25,
+    FICA_RATE: 0.0765,
+    SE_TAX_RATE: 0.153,
+    SE_INCOME_FACTOR: 0.9235,
+    SS_WAGE_BASE: 184500,
+    QBI_RATE: 0.20,           // §199A(a)(1)
+    QBI_TI_THRESHOLD_MFJ: 403500,
+    STD_DED, BRACKET_TOPS, BRACKET_RATES,
+    bracketWidths,
+  };
+})();
+
+const LPModel = (function() {
+  const TC = TaxConstants;
+
+  function buildModel(inputs) {
+    const X = +inputs.X || 0;
+    const otherPassive = +inputs.otherPassive || 0;
+    const schedC = +inputs.schedC || 0;
+    const filingStatus = inputs.filingStatus || "MFJ";
+    const wMin = +inputs.wMin || 0;
+    const cleanPaycheck = inputs.cleanPaycheck !== false;
+
+    const seBase = TC.SE_INCOME_FACTOR * schedC;
+    const seTax = TC.SE_TAX_RATE * seBase;
+    const seDed = 0.5 * seTax;
+    const stdDed = TC.STD_DED[filingStatus];
+    const widths = TC.bracketWidths(filingStatus);
+
+    // YALPS variable spec: each var lists its objective coef + its coef in every constraint it appears in.
+    const variables = {
+      W:  { obj: 2 * TC.FICA_RATE, budget: 1 + TC.FICA_RATE, ED_comp: -1,
+            PS_max: -TC.PS_RATE, sec415_comp: -1, TI_pre_def: 1, rsbl_comp: -1 },
+      ED: { obj: 0, ED_legal: 1, ED_comp: 1, sec415_dollar: 1,
+            sec415_comp: 1, TI_pre_def: -1 },
+      PS: { obj: 0, budget: 1, PS_max: 1, sec415_dollar: 1, sec415_comp: 1 },
+      K1: { obj: 0, budget: 1, QBI_base: -TC.QBI_RATE, TI_pre_def: 1 },
+      QBI:{ obj: 0, QBI_base: 1, QBI_TI_cap: 1, TI_def: -1 },
+      TI: { obj: 0, bracket_sum: -1, TI_def: -1 },
+      t1: { obj: TC.BRACKET_RATES[0], bracket_sum: 1, bracket_1: 1 },
+      t2: { obj: TC.BRACKET_RATES[1], bracket_sum: 1, bracket_2: 1 },
+      t3: { obj: TC.BRACKET_RATES[2], bracket_sum: 1, bracket_3: 1 },
+      t4: { obj: TC.BRACKET_RATES[3], bracket_sum: 1, bracket_4: 1 },
+      TI_pre: { obj: 0, QBI_TI_cap: -TC.QBI_RATE, TI_pre_def: -1, TI_def: 1 },
+    };
+    if (cleanPaycheck) {
+      variables.W.ED_paycheck = -TC.SE_INCOME_FACTOR;
+      variables.ED.ED_paycheck = 1;
+    }
+
+    const constraints = {
+      budget:        { equal: X },                                   // 1.0765·W + PS + K1 = X
+      bracket_sum:   { equal: 0 },                                   // Σt_i - TI = 0
+      ED_legal:      { max: TC.ED_MAX },                             // §402(g)(1) dollar
+      ED_comp:       { max: 0 },                                     // §402(g): ED ≤ W
+      PS_max:        { max: 0 },                                     // §404(a): PS ≤ 0.25·W
+      sec415_dollar: { max: TC.SEC415_CAP },                         // §415(c)(1)(A)
+      sec415_comp:   { max: 0 },                                     // §415(c)(1)(B): ED+PS ≤ W
+      QBI_base:      { max: TC.QBI_RATE * (schedC - seDed) },        // QBI - 0.20·K1 ≤ 0.20·(SchedC - SE_ded)
+      QBI_TI_cap:    { max: 0 },                                     // QBI - 0.20·TI_pre ≤ 0
+      TI_pre_def:    { max: stdDed + seDed - otherPassive - schedC },// W-ED+K1-TI_pre ≤ StdDed+SE_ded-other-SchedC
+      TI_def:        { max: 0 },                                     // TI_pre - QBI - TI ≤ 0
+      bracket_1:     { max: widths[0] },
+      bracket_2:     { max: widths[1] },
+      bracket_3:     { max: widths[2] },
+      bracket_4:     { max: widths[3] },
+      rsbl_comp:     { max: -wMin },                                 // -W ≤ -W_min
+    };
+    if (cleanPaycheck) constraints.ED_paycheck = { max: 0 };
+
+    return { direction: "minimize", objective: "obj", constraints, variables };
+  }
+
+  function extractSolution(result, inputs) {
+    if (result.status !== "optimal") {
+      return { status: result.status, message: result.message || "", vars: {}, derived: {} };
+    }
+    const m = Object.fromEntries(result.variables);
+    const W = m.W || 0, ED = m.ED || 0, PS = m.PS || 0, K1 = m.K1 || 0;
+    const QBI = m.QBI || 0, TI = m.TI || 0, TI_pre = m.TI_pre || 0;
+    const t1 = m.t1 || 0, t2 = m.t2 || 0, t3 = m.t3 || 0, t4 = m.t4 || 0;
+
+    const otherPassive = +inputs.otherPassive || 0;
+    const schedC = +inputs.schedC || 0;
+    const seBase = TC.SE_INCOME_FACTOR * schedC;
+    const seTax = TC.SE_TAX_RATE * seBase;
+    const seDed = 0.5 * seTax;
+    const stdDed = TC.STD_DED[inputs.filingStatus || "MFJ"];
+
+    const box1 = W - ED;
+    const eeFica = TC.FICA_RATE * W;
+    const erFica = TC.FICA_RATE * W;
+    const agi = box1 + K1 + otherPassive + schedC - seDed;
+    const fedTax =
+      TC.BRACKET_RATES[0] * t1 +
+      TC.BRACKET_RATES[1] * t2 +
+      TC.BRACKET_RATES[2] * t3 +
+      TC.BRACKET_RATES[3] * t4;
+    const totalTax = fedTax + 2 * TC.FICA_RATE * W + seTax;
+    const gross = (+inputs.X || 0) + otherPassive + schedC;
+
+    // Collapse IEEE-754 -0.0 to +0.0 for clean display.
+    const c = (v) => (Math.abs(v) < 1e-6 ? 0 : v);
+
+    return {
+      status: "optimal", message: "",
+      vars: { W:c(W), ED:c(ED), PS:c(PS), K1:c(K1), QBI:c(QBI), TI:c(TI),
+              t1:c(t1), t2:c(t2), t3:c(t3), t4:c(t4), TI_pre:c(TI_pre) },
+      derived: {
+        box1: c(box1), agi: c(agi), stdDed,
+        seBase: c(seBase), seTax: c(seTax), seDed: c(seDed),
+        fedTax: c(fedTax), eeFica: c(eeFica), erFica: c(erFica),
+        totalTax: c(totalTax),
+        etrVsGross: gross > 0 ? totalTax / gross : 0,
+        etrVsTi: TI > 0 ? totalTax / TI : 0,
+        retirementTotal: c(ED + PS),
+      },
+    };
+  }
+
+  return { buildModel, extractSolution };
+})();
+
+const GROUND_TRUTH = {"year": 2026, "generated_at": "2026-05-14", "lp_version": "v2.1 (post-audit, with TI_pre fix)", "constants_verified": true, "cases": [{"id": 1, "name": "X=0 boundary", "inputs": {"X": 0, "filing_status": "MFJ", "w_min": 0}, "expected_behavior": "All decision vars = 0, total tax = 0", "result": {"status": "optimal", "message": "", "vars": {"W": 0.0, "ED": 0.0, "PS": 0.0, "K1": 0.0, "QBI": 0.0, "TI": 0.0, "t1": 0.0, "t2": 0.0, "t3": 0.0, "t4": 0.0, "TI_pre": 0.0}, "derived": {"box1": 0.0, "agi": 0.0, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 0.0, "ee_fica": 0.0, "er_fica": 0.0, "total_tax": 0.0, "etr_vs_gross": 0.0, "etr_vs_ti": 0.0, "retirement_total": 0.0}}}, {"id": 2, "name": "X=50k MFJ W_min=0", "inputs": {"X": 50000, "filing_status": "MFJ", "w_min": 0}, "expected_behavior": "Standard optimum (free choice of W)", "result": {"status": "optimal", "message": "", "vars": {"W": 0.0, "ED": 0.0, "PS": 0.0, "K1": 50000.0, "QBI": 3560.0, "TI": 14240.0, "t1": 14240.0, "t2": 0.0, "t3": 0.0, "t4": 0.0, "TI_pre": 17800.0}, "derived": {"box1": 0.0, "agi": 50000.0, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 1424.0, "ee_fica": 0.0, "er_fica": 0.0, "total_tax": 1424.0, "etr_vs_gross": 0.0285, "etr_vs_ti": 0.1, "retirement_total": 0.0}}}, {"id": 3, "name": "X=100k MFJ W_min=30k (default)", "inputs": {"X": 100000, "filing_status": "MFJ", "w_min": 30000}, "expected_behavior": "Reasonable comp binds at W=30k or W>30k optimal", "result": {"status": "optimal", "message": "", "vars": {"W": 30000.0, "ED": 24500.0, "PS": 5500.0, "K1": 62205.0, "QBI": 7101.0, "TI": 28404.0, "t1": 24800.0, "t2": 3604.0, "t3": 0.0, "t4": 0.0, "TI_pre": 35505.0}, "derived": {"box1": 5500.0, "agi": 67705.0, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 2912.48, "ee_fica": 2295.0, "er_fica": 2295.0, "total_tax": 7502.48, "etr_vs_gross": 0.075, "etr_vs_ti": 0.2641, "retirement_total": 30000.0}}}, {"id": 4, "name": "X=200k MFJ W_min=0 (\u00a7415 saturates)", "inputs": {"X": 200000, "filing_status": "MFJ", "w_min": 0}, "expected_behavior": "\u00a7415(c) dollar cap saturates: ED + PS approaches 72k", "result": {"status": "optimal", "message": "", "vars": {"W": 32666.67, "ED": 24500.0, "PS": 8166.67, "K1": 156667.67, "QBI": 26526.87, "TI": 106107.47, "t1": 24800.0, "t2": 76000.0, "t3": 5307.47, "t4": 0.0, "TI_pre": 132634.33}, "derived": {"box1": 8166.67, "agi": 164834.33, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 12767.64, "ee_fica": 2499.0, "er_fica": 2499.0, "total_tax": 17765.64, "etr_vs_gross": 0.0888, "etr_vs_ti": 0.1674, "retirement_total": 32666.67}}}, {"id": 5, "name": "X=100k W_min=50k binding", "inputs": {"X": 100000, "filing_status": "MFJ", "w_min": 50000}, "expected_behavior": "W = 50000 (W_min binding)", "result": {"status": "optimal", "message": "", "vars": {"W": 50000.0, "ED": 24500.0, "PS": 12500.0, "K1": 33675.0, "QBI": 5395.0, "TI": 21580.0, "t1": 21580.0, "t2": 0.0, "t3": 0.0, "t4": 0.0, "TI_pre": 26975.0}, "derived": {"box1": 25500.0, "agi": 59175.0, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 2158.0, "ee_fica": 3825.0, "er_fica": 3825.0, "total_tax": 9808.0, "etr_vs_gross": 0.0981, "etr_vs_ti": 0.4545, "retirement_total": 37000.0}}}, {"id": 6, "name": "OtherIncome_passive=50k X=50k", "inputs": {"X": 50000, "other_passive": 50000, "filing_status": "MFJ", "w_min": 0}, "expected_behavior": "Joint AGI pushes brackets up", "result": {"status": "optimal", "message": "", "vars": {"W": 0.0, "ED": 0.0, "PS": 0.0, "K1": 50000.0, "QBI": 10000.0, "TI": 57800.0, "t1": 24800.0, "t2": 33000.0, "t3": 0.0, "t4": 0.0, "TI_pre": 67800.0}, "derived": {"box1": 0.0, "agi": 100000.0, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 6440.0, "ee_fica": 0.0, "er_fica": 0.0, "total_tax": 6440.0, "etr_vs_gross": 0.0644, "etr_vs_ti": 0.1114, "retirement_total": 0.0}}}, {"id": 7, "name": "\u00a7415(c) dollar binding (X=200k, W_min forces big W)", "inputs": {"X": 200000, "filing_status": "MFJ", "w_min": 100000}, "expected_behavior": "ED + PS = $72k (dollar cap saturates with high W)", "result": {"status": "optimal", "message": "", "vars": {"W": 100000.0, "ED": 24500.0, "PS": 25000.0, "K1": 67350.0, "QBI": 13470.0, "TI": 97180.0, "t1": 24800.0, "t2": 72380.0, "t3": 0.0, "t4": 0.0, "TI_pre": 110650.0}, "derived": {"box1": 75500.0, "agi": 142850.0, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 11165.6, "ee_fica": 7650.0, "er_fica": 7650.0, "total_tax": 26465.6, "etr_vs_gross": 0.1323, "etr_vs_ti": 0.2723, "retirement_total": 49500.0}}}, {"id": 8, "name": "\u00a7415(c) comp binding (low W)", "inputs": {"X": 30000, "filing_status": "MFJ", "w_min": 15000}, "expected_behavior": "ED + PS \u2264 W binds (low W \u2192 comp cap tighter than dollar cap)", "result": {"status": "optimal", "message": "", "vars": {"W": 15000.0, "ED": 0.0, "PS": 0.0, "K1": 13852.5, "QBI": 0.0, "TI": 0.0, "t1": 0.0, "t2": 0.0, "t3": 0.0, "t4": 0.0, "TI_pre": 0.0}, "derived": {"box1": 15000.0, "agi": 28852.5, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 0.0, "ee_fica": 1147.5, "er_fica": 1147.5, "total_tax": 2295.0, "etr_vs_gross": 0.0765, "etr_vs_ti": 2295.0, "retirement_total": 0.0}}}, {"id": 9, "name": "Clean-paycheck off, X=50k W_min=25k", "inputs": {"X": 50000, "filing_status": "MFJ", "w_min": 25000, "clean_paycheck": false}, "expected_behavior": "ED may reach W (Box 1 \u2192 0)", "result": {"status": "optimal", "message": "", "vars": {"W": 25000.0, "ED": 15887.5, "PS": 0.0, "K1": 23087.5, "QBI": 0.0, "TI": 0.0, "t1": 0.0, "t2": 0.0, "t3": 0.0, "t4": 0.0, "TI_pre": 0.0}, "derived": {"box1": 9112.5, "agi": 32200.0, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 0.0, "ee_fica": 1912.5, "er_fica": 1912.5, "total_tax": 3825.0, "etr_vs_gross": 0.0765, "etr_vs_ti": 3825.0, "retirement_total": 15887.5}}}, {"id": 10, "name": "QBI TI cap binding (X=150k, W_min=0)", "inputs": {"X": 150000, "filing_status": "MFJ", "w_min": 0}, "expected_behavior": "QBI capped by 0.20*TI_pre, not by 0.20*K1", "result": {"status": "optimal", "message": "", "vars": {"W": 0.0, "ED": 0.0, "PS": 0.0, "K1": 150000.0, "QBI": 23560.0, "TI": 94240.0, "t1": 24800.0, "t2": 69440.0, "t3": 0.0, "t4": 0.0, "TI_pre": 117800.0}, "derived": {"box1": 0.0, "agi": 150000.0, "std_ded": 32200, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 10812.8, "ee_fica": 0.0, "er_fica": 0.0, "total_tax": 10812.8, "etr_vs_gross": 0.0721, "etr_vs_ti": 0.1147, "retirement_total": 0.0}}}, {"id": 11, "name": "SchedC=30k, X=0 (no S-Corp)", "inputs": {"X": 0, "sched_c": 30000, "filing_status": "MFJ", "w_min": 0}, "expected_behavior": "SE tax fires; AGI < StdDed \u2192 TI_pre=0, QBI=0", "result": {"status": "optimal", "message": "", "vars": {"W": 0.0, "ED": 0.0, "PS": 0.0, "K1": 0.0, "QBI": 0.0, "TI": 0.0, "t1": 0.0, "t2": 0.0, "t3": 0.0, "t4": 0.0, "TI_pre": 0.0}, "derived": {"box1": 0.0, "agi": 27880.57, "std_ded": 32200, "se_base": 27705.0, "se_tax": 4238.86, "se_ded": 2119.43, "fed_tax": 0.0, "ee_fica": 0.0, "er_fica": 0.0, "total_tax": 4238.86, "etr_vs_gross": 0.1413, "etr_vs_ti": 4238.865, "retirement_total": 0.0}}}, {"id": 12, "name": "Infeasible: W_min=80k X=30k", "inputs": {"X": 30000, "filing_status": "MFJ", "w_min": 80000}, "expected_behavior": "INFEASIBLE (W_min > X/1.0765)", "result": {"status": "infeasible", "message": "The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None)", "vars": {}, "derived": {}}}, {"id": 13, "name": "FilingStatus=Single, X=100k", "inputs": {"X": 100000, "filing_status": "Single", "w_min": 30000}, "expected_behavior": "Narrower brackets + smaller std ded \u2192 higher tax than MFJ case 3", "result": {"status": "optimal", "message": "", "vars": {"W": 30000.0, "ED": 24500.0, "PS": 5500.0, "K1": 62205.0, "QBI": 10321.0, "TI": 41284.0, "t1": 12400.0, "t2": 28884.0, "t3": 0.0, "t4": 0.0, "TI_pre": 51605.0}, "derived": {"box1": 5500.0, "agi": 67705.0, "std_ded": 16100, "se_base": 0.0, "se_tax": 0.0, "se_ded": 0.0, "fed_tax": 4706.08, "ee_fica": 2295.0, "er_fica": 2295.0, "total_tax": 9296.08, "etr_vs_gross": 0.093, "etr_vs_ti": 0.2252, "retirement_total": 30000.0}}}]};
+
+const TestHarness = (function() {
+  const TOL = 1.0;
+
+  function runCase(tc) {
+    const inputs = {
+      X: tc.inputs.X || 0,
+      otherPassive: tc.inputs.other_passive || 0,
+      schedC: tc.inputs.sched_c || 0,
+      filingStatus: tc.inputs.filing_status || "MFJ",
+      wMin: tc.inputs.w_min || 0,
+      cleanPaycheck: tc.inputs.clean_paycheck !== false,
+    };
+    const sol = LPModel.extractSolution(YALPS.solve(LPModel.buildModel(inputs)), inputs);
+    const expected = tc.result;
+    if (sol.status !== expected.status) {
+      return { id: tc.id, name: tc.name, pass: false,
+               reason: `status mismatch: got "${sol.status}", expected "${expected.status}"` };
+    }
+    if (sol.status !== "optimal") return { id: tc.id, name: tc.name, pass: true };
+
+    // Correctness checks: status + objective value + W (always determinate from W_min) +
+    // budget feasibility. Individual ED/PS/K1 may differ between LP solvers at degenerate
+    // vertices (multiple optimal corners) — this is mathematically valid, so skip strict var-by-var.
+    const diffs = [];
+    if (Math.abs(sol.vars.W - expected.vars.W) > TOL) {
+      diffs.push(`W: got ${sol.vars.W.toFixed(2)}, want ${expected.vars.W.toFixed(2)}`);
+    }
+    if (Math.abs(sol.derived.totalTax - expected.derived.total_tax) > TOL) {
+      diffs.push(`totalTax: got ${sol.derived.totalTax.toFixed(2)}, want ${expected.derived.total_tax.toFixed(2)}`);
+    }
+    const budgetActual = (1 + TaxConstants.FICA_RATE) * sol.vars.W + sol.vars.PS + sol.vars.K1;
+    if (Math.abs(budgetActual - tc.inputs.X) > TOL) {
+      diffs.push(`budget violated: 1.0765·W + PS + K1 = ${budgetActual.toFixed(2)}, expected ${tc.inputs.X}`);
+    }
+    return diffs.length === 0
+      ? { id: tc.id, name: tc.name, pass: true }
+      : { id: tc.id, name: tc.name, pass: false, reason: diffs.join("; ") };
+  }
+
+  function runAll() {
+    if (!GROUND_TRUTH || !GROUND_TRUTH.cases) {
+      throw new Error("GROUND_TRUTH not inlined. Run scripts/inject_ground_truth.sh.");
+    }
+    const results = GROUND_TRUTH.cases.map(runCase);
+    return { total: results.length, passed: results.filter(r => r.pass).length, results };
+  }
+
+  return { runAll, runCase };
+})();
+
+const App = (function() {
+  function isTestMode() {
+    return new URLSearchParams(window.location.search).get("test") === "1";
+  }
+
+  function renderTestResults() {
+    const container = document.querySelector("#app");
+    container.innerHTML = "<h1>Test Results</h1><p id='test-summary'>Running…</p><pre id='test-output' style='font-family:ui-monospace,Menlo,monospace;font-size:13px;'></pre>";
+    try {
+      const { total, passed, results } = TestHarness.runAll();
+      const lines = results.map(r =>
+        r.pass
+          ? `  \u2713 Test ${String(r.id).padStart(2)}: ${r.name}`
+          : `  \u2717 Test ${String(r.id).padStart(2)}: ${r.name}\n      ${r.reason}`
+      );
+      document.querySelector("#test-summary").textContent = passed === total
+        ? `\u2705 ALL TESTS PASSED (${passed}/${total})`
+        : `\u274C ${total - passed} of ${total} tests FAILED`;
+      document.querySelector("#test-summary").style.color = passed === total ? "green" : "red";
+      document.querySelector("#test-output").textContent = lines.join("\n");
+    } catch (e) {
+      document.querySelector("#test-summary").textContent = `Error: ${e.message}`;
+      document.querySelector("#test-summary").style.color = "red";
+    }
+  }
+
+  function init() {
+    if (isTestMode()) {
+      renderTestResults();
+      return;
+    }
+    document.querySelector("#boot-msg").textContent = "LP core ready. UI pending (Tasks 10+).";
+  }
+
+  return { init };
+})();
+
+document.addEventListener("DOMContentLoaded", App.init);
   </script>
 </body>
 </html>
