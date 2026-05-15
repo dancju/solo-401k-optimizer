@@ -285,7 +285,6 @@ Sankey shows the flow of money from sources → sinks. Designed so every node sa
 | `src_ext_passive` | Other passive income | source | OtherIncome_passive |
 | `src_schedc` | Schedule C net profit | source | SchedC |
 | `mid_w` | W-2 gross wages (paid to owner) | flow-through | W |
-| `mid_erfica` | Employer FICA pool | flow-through | 0.0765·W |
 | `mid_k1` | K-1 distribution | flow-through | K1 |
 | `sink_401k_ed` | 401(k) ED (pre-tax) | sink | ED |
 | `sink_401k_ps` | 401(k) PS | sink | PS |
@@ -300,12 +299,10 @@ Sankey shows the flow of money from sources → sinks. Designed so every node sa
 
 ```
 src_x              → mid_w              : W
-src_x              → mid_erfica         : 0.0765·W
+src_x              → sink_employer_fica : 0.0765·W
 src_x              → sink_401k_ps       : PS
 src_x              → mid_k1             : K1
                      # src_x balance: W + 0.0765·W + PS + K1 = 1.0765·W + PS + K1 = X ✓
-
-mid_erfica         → sink_employer_fica : 0.0765·W
 
 mid_w              → sink_401k_ed       : ED
 mid_w              → sink_box1          : W − ED              ✓ balance: W in = ED + (W−ED) out
