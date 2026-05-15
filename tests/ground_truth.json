@@ -1,0 +1,531 @@
+{
+  "year": 2026,
+  "generated_at": "2026-05-14",
+  "lp_version": "v2.1 (post-audit, with TI_pre fix)",
+  "constants_verified": true,
+  "cases": [
+    {
+      "id": 1,
+      "name": "X=0 boundary",
+      "inputs": {
+        "X": 0,
+        "filing_status": "MFJ",
+        "w_min": 0
+      },
+      "expected_behavior": "All decision vars = 0, total tax = 0",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 0.0,
+          "ED": 0.0,
+          "PS": 0.0,
+          "K1": 0.0,
+          "QBI": 0.0,
+          "TI": 0.0,
+          "t1": 0.0,
+          "t2": 0.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 0.0
+        },
+        "derived": {
+          "box1": 0.0,
+          "agi": 0.0,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 0.0,
+          "ee_fica": 0.0,
+          "er_fica": 0.0,
+          "total_tax": 0.0,
+          "etr_vs_gross": 0.0,
+          "etr_vs_ti": 0.0,
+          "retirement_total": 0.0
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "X=50k MFJ W_min=0",
+      "inputs": {
+        "X": 50000,
+        "filing_status": "MFJ",
+        "w_min": 0
+      },
+      "expected_behavior": "Standard optimum (free choice of W)",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 0.0,
+          "ED": 0.0,
+          "PS": 0.0,
+          "K1": 50000.0,
+          "QBI": 3560.0,
+          "TI": 14240.0,
+          "t1": 14240.0,
+          "t2": 0.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 17800.0
+        },
+        "derived": {
+          "box1": 0.0,
+          "agi": 50000.0,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 1424.0,
+          "ee_fica": 0.0,
+          "er_fica": 0.0,
+          "total_tax": 1424.0,
+          "etr_vs_gross": 0.0285,
+          "etr_vs_ti": 0.1,
+          "retirement_total": 0.0
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "X=100k MFJ W_min=30k (default)",
+      "inputs": {
+        "X": 100000,
+        "filing_status": "MFJ",
+        "w_min": 30000
+      },
+      "expected_behavior": "Reasonable comp binds at W=30k or W>30k optimal",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 30000.0,
+          "ED": 24500.0,
+          "PS": 5500.0,
+          "K1": 62205.0,
+          "QBI": 7101.0,
+          "TI": 28404.0,
+          "t1": 24800.0,
+          "t2": 3604.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 35505.0
+        },
+        "derived": {
+          "box1": 5500.0,
+          "agi": 67705.0,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 2912.48,
+          "ee_fica": 2295.0,
+          "er_fica": 2295.0,
+          "total_tax": 7502.48,
+          "etr_vs_gross": 0.075,
+          "etr_vs_ti": 0.2641,
+          "retirement_total": 30000.0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "X=200k MFJ W_min=0 (\u00a7415 saturates)",
+      "inputs": {
+        "X": 200000,
+        "filing_status": "MFJ",
+        "w_min": 0
+      },
+      "expected_behavior": "\u00a7415(c) dollar cap saturates: ED + PS approaches 72k",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 32666.67,
+          "ED": 24500.0,
+          "PS": 8166.67,
+          "K1": 156667.67,
+          "QBI": 26526.87,
+          "TI": 106107.47,
+          "t1": 24800.0,
+          "t2": 76000.0,
+          "t3": 5307.47,
+          "t4": 0.0,
+          "TI_pre": 132634.33
+        },
+        "derived": {
+          "box1": 8166.67,
+          "agi": 164834.33,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 12767.64,
+          "ee_fica": 2499.0,
+          "er_fica": 2499.0,
+          "total_tax": 17765.64,
+          "etr_vs_gross": 0.0888,
+          "etr_vs_ti": 0.1674,
+          "retirement_total": 32666.67
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "X=100k W_min=50k binding",
+      "inputs": {
+        "X": 100000,
+        "filing_status": "MFJ",
+        "w_min": 50000
+      },
+      "expected_behavior": "W = 50000 (W_min binding)",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 50000.0,
+          "ED": 24500.0,
+          "PS": 12500.0,
+          "K1": 33675.0,
+          "QBI": 5395.0,
+          "TI": 21580.0,
+          "t1": 21580.0,
+          "t2": 0.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 26975.0
+        },
+        "derived": {
+          "box1": 25500.0,
+          "agi": 59175.0,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 2158.0,
+          "ee_fica": 3825.0,
+          "er_fica": 3825.0,
+          "total_tax": 9808.0,
+          "etr_vs_gross": 0.0981,
+          "etr_vs_ti": 0.4545,
+          "retirement_total": 37000.0
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "OtherIncome_passive=50k X=50k",
+      "inputs": {
+        "X": 50000,
+        "other_passive": 50000,
+        "filing_status": "MFJ",
+        "w_min": 0
+      },
+      "expected_behavior": "Joint AGI pushes brackets up",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 0.0,
+          "ED": 0.0,
+          "PS": 0.0,
+          "K1": 50000.0,
+          "QBI": 10000.0,
+          "TI": 57800.0,
+          "t1": 24800.0,
+          "t2": 33000.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 67800.0
+        },
+        "derived": {
+          "box1": 0.0,
+          "agi": 100000.0,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 6440.0,
+          "ee_fica": 0.0,
+          "er_fica": 0.0,
+          "total_tax": 6440.0,
+          "etr_vs_gross": 0.0644,
+          "etr_vs_ti": 0.1114,
+          "retirement_total": 0.0
+        }
+      }
+    },
+    {
+      "id": 7,
+      "name": "\u00a7415(c) dollar binding (X=200k, W_min forces big W)",
+      "inputs": {
+        "X": 200000,
+        "filing_status": "MFJ",
+        "w_min": 100000
+      },
+      "expected_behavior": "ED + PS = $72k (dollar cap saturates with high W)",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 100000.0,
+          "ED": 24500.0,
+          "PS": 25000.0,
+          "K1": 67350.0,
+          "QBI": 13470.0,
+          "TI": 97180.0,
+          "t1": 24800.0,
+          "t2": 72380.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 110650.0
+        },
+        "derived": {
+          "box1": 75500.0,
+          "agi": 142850.0,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 11165.6,
+          "ee_fica": 7650.0,
+          "er_fica": 7650.0,
+          "total_tax": 26465.6,
+          "etr_vs_gross": 0.1323,
+          "etr_vs_ti": 0.2723,
+          "retirement_total": 49500.0
+        }
+      }
+    },
+    {
+      "id": 8,
+      "name": "\u00a7415(c) comp binding (low W)",
+      "inputs": {
+        "X": 30000,
+        "filing_status": "MFJ",
+        "w_min": 15000
+      },
+      "expected_behavior": "ED + PS \u2264 W binds (low W \u2192 comp cap tighter than dollar cap)",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 15000.0,
+          "ED": 0.0,
+          "PS": 0.0,
+          "K1": 13852.5,
+          "QBI": 0.0,
+          "TI": 0.0,
+          "t1": 0.0,
+          "t2": 0.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 0.0
+        },
+        "derived": {
+          "box1": 15000.0,
+          "agi": 28852.5,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 0.0,
+          "ee_fica": 1147.5,
+          "er_fica": 1147.5,
+          "total_tax": 2295.0,
+          "etr_vs_gross": 0.0765,
+          "etr_vs_ti": 2295.0,
+          "retirement_total": 0.0
+        }
+      }
+    },
+    {
+      "id": 9,
+      "name": "Clean-paycheck off, X=50k W_min=25k",
+      "inputs": {
+        "X": 50000,
+        "filing_status": "MFJ",
+        "w_min": 25000,
+        "clean_paycheck": false
+      },
+      "expected_behavior": "ED may reach W (Box 1 \u2192 0)",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 25000.0,
+          "ED": 15887.5,
+          "PS": 0.0,
+          "K1": 23087.5,
+          "QBI": 0.0,
+          "TI": 0.0,
+          "t1": 0.0,
+          "t2": 0.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 0.0
+        },
+        "derived": {
+          "box1": 9112.5,
+          "agi": 32200.0,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 0.0,
+          "ee_fica": 1912.5,
+          "er_fica": 1912.5,
+          "total_tax": 3825.0,
+          "etr_vs_gross": 0.0765,
+          "etr_vs_ti": 3825.0,
+          "retirement_total": 15887.5
+        }
+      }
+    },
+    {
+      "id": 10,
+      "name": "QBI TI cap binding (X=150k, W_min=0)",
+      "inputs": {
+        "X": 150000,
+        "filing_status": "MFJ",
+        "w_min": 0
+      },
+      "expected_behavior": "QBI capped by 0.20*TI_pre, not by 0.20*K1",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 0.0,
+          "ED": 0.0,
+          "PS": 0.0,
+          "K1": 150000.0,
+          "QBI": 23560.0,
+          "TI": 94240.0,
+          "t1": 24800.0,
+          "t2": 69440.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 117800.0
+        },
+        "derived": {
+          "box1": 0.0,
+          "agi": 150000.0,
+          "std_ded": 32200,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 10812.8,
+          "ee_fica": 0.0,
+          "er_fica": 0.0,
+          "total_tax": 10812.8,
+          "etr_vs_gross": 0.0721,
+          "etr_vs_ti": 0.1147,
+          "retirement_total": 0.0
+        }
+      }
+    },
+    {
+      "id": 11,
+      "name": "SchedC=30k, X=0 (no S-Corp)",
+      "inputs": {
+        "X": 0,
+        "sched_c": 30000,
+        "filing_status": "MFJ",
+        "w_min": 0
+      },
+      "expected_behavior": "SE tax fires; AGI < StdDed \u2192 TI_pre=0, QBI=0",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 0.0,
+          "ED": 0.0,
+          "PS": 0.0,
+          "K1": 0.0,
+          "QBI": 0.0,
+          "TI": 0.0,
+          "t1": 0.0,
+          "t2": 0.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 0.0
+        },
+        "derived": {
+          "box1": 0.0,
+          "agi": 27880.57,
+          "std_ded": 32200,
+          "se_base": 27705.0,
+          "se_tax": 4238.86,
+          "se_ded": 2119.43,
+          "fed_tax": 0.0,
+          "ee_fica": 0.0,
+          "er_fica": 0.0,
+          "total_tax": 4238.86,
+          "etr_vs_gross": 0.1413,
+          "etr_vs_ti": 4238.865,
+          "retirement_total": 0.0
+        }
+      }
+    },
+    {
+      "id": 12,
+      "name": "Infeasible: W_min=80k X=30k",
+      "inputs": {
+        "X": 30000,
+        "filing_status": "MFJ",
+        "w_min": 80000
+      },
+      "expected_behavior": "INFEASIBLE (W_min > X/1.0765)",
+      "result": {
+        "status": "infeasible",
+        "message": "The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None)",
+        "vars": {},
+        "derived": {}
+      }
+    },
+    {
+      "id": 13,
+      "name": "FilingStatus=Single, X=100k",
+      "inputs": {
+        "X": 100000,
+        "filing_status": "Single",
+        "w_min": 30000
+      },
+      "expected_behavior": "Narrower brackets + smaller std ded \u2192 higher tax than MFJ case 3",
+      "result": {
+        "status": "optimal",
+        "message": "",
+        "vars": {
+          "W": 30000.0,
+          "ED": 24500.0,
+          "PS": 5500.0,
+          "K1": 62205.0,
+          "QBI": 10321.0,
+          "TI": 41284.0,
+          "t1": 12400.0,
+          "t2": 28884.0,
+          "t3": 0.0,
+          "t4": 0.0,
+          "TI_pre": 51605.0
+        },
+        "derived": {
+          "box1": 5500.0,
+          "agi": 67705.0,
+          "std_ded": 16100,
+          "se_base": 0.0,
+          "se_tax": 0.0,
+          "se_ded": 0.0,
+          "fed_tax": 4706.08,
+          "ee_fica": 2295.0,
+          "er_fica": 2295.0,
+          "total_tax": 9296.08,
+          "etr_vs_gross": 0.093,
+          "etr_vs_ti": 0.2252,
+          "retirement_total": 30000.0
+        }
+      }
+    }
+  ]
+}
