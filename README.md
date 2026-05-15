@@ -4,7 +4,7 @@ Browser-based optimizer for splitting S-Corp net profit between W-2 wages,
 401(k) employee deferral, employer profit-sharing, and K-1 distribution to
 minimize current-year federal tax burden. Solves an 11-variable LP via YALPS.
 
-**Live:** https://USERNAME.github.io/solo-401k-optimizer/ · **Tests:** [`?test=1`](https://USERNAME.github.io/solo-401k-optimizer/?test=1)
+**Live:** https://dancju.github.io/solo-401k-optimizer/ · **Tests:** [`?test=1`](https://dancju.github.io/solo-401k-optimizer/?test=1)
 
 ## Usage
 
@@ -57,7 +57,7 @@ CI auto-deploys `dist/` on every push to `main` via
 One-time setup after pushing to GitHub:
 
 1. Repo Settings → **Pages** → Source = **GitHub Actions**
-2. (or via CLI) `gh api -X POST /repos/USERNAME/solo-401k-optimizer/pages -f build_type=workflow`
+2. (or via CLI) `gh api -X POST /repos/dancju/solo-401k-optimizer/pages -f build_type=workflow`
 
 The workflow pins all vendor versions and verifies YALPS bundle size (9,910
 bytes) before deploying.
