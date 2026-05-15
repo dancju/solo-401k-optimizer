@@ -214,7 +214,7 @@ Simplified (drop SE_tax as it's a constant in LP):
 
 | Control | Type | Range / options | Default |
 |---|---|---|---|
-| S-Corp net profit `X` | Slider + number | 0–200,000 (step 1,000) | 100,000 |
+| S-Corp net profit (LP var `X`) | Number | 0–200,000 (step 1,000) | 100,000 |
 | Other passive / W-2 income | Number | 0–500,000 | 0 |
 | Schedule C net profit | Number | 0–500,000 | 0 |
 | Filing status | Selector | MFJ / Single / HoH / QW | MFJ |
