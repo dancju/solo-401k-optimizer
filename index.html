@@ -5,15 +5,130 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Solo 401(k) S-Corp Optimizer (2026)</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 1rem; }
-    #app { max-width: 1200px; margin: 0 auto; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px; line-height: 1.4; color: #222; background: #fafafa; }
+    #app { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+    header h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+    header h1 .year { color: #888; font-weight: normal; }
+    .warning { background: #fff8dc; border-left: 4px solid #d4a017;
+      padding: 0.5rem 0.75rem; margin: 0.5rem 0 1rem 0; font-size: 0.9rem; }
+    .two-col { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; }
+    #inputs { display: flex; flex-direction: column; gap: 0.75rem; }
+    #inputs h2 { margin: 0 0 0.25rem 0; font-size: 1.1rem; }
+    #inputs label { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 600; font-size: 0.85rem; }
+    #inputs input[type="number"], #inputs input[type="range"], #inputs select {
+      width: 100%; padding: 0.4rem; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      border: 1px solid #ccc; border-radius: 3px; font-size: 14px; font-weight: normal; }
+    #inputs input[type="range"] { padding: 0; }
+    #inputs .x-row { display: grid; grid-template-columns: 1fr 100px; gap: 0.5rem; align-items: center; }
+    .disclaimer { font-weight: normal; font-size: 0.75rem; color: #666; line-height: 1.3; }
+    .disclaimer a { color: #2858a0; }
+    details summary { cursor: pointer; user-select: none; font-weight: 600; font-size: 0.85rem; }
+    #sankey-container { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px;
+      margin-bottom: 1rem; min-height: 400px; }
+    #sankey { display: block; width: 100%; }
+    #infeasibility-banner { background: #ffe5e5; border-left: 4px solid #c00; color: #800;
+      padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    #infeasibility-banner h3 { margin: 0 0 0.25rem 0; }
+    #infeasibility-banner p { margin: 0; font-size: 0.9rem; }
+    #output-panels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .panel { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; padding: 0.75rem; }
+    .panel h3 { margin: 0 0 0.5rem 0; font-size: 1rem; }
+    .panel table { width: 100%; border-collapse: collapse;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85rem; }
+    .panel table td { padding: 0.25rem 0.4rem; }
+    .panel table td.num { text-align: right; }
+    .panel table tr.total { border-top: 1px solid #444; font-weight: bold; }
+    .panel table tr.indent td:first-child { padding-left: 1.5rem; color: #555; }
+    .panel .note { font-size: 0.7rem; color: #888; padding-top: 0.5rem; line-height: 1.3; }
+    .color-retire { color: #2a7f3a; }
+    .color-tax { color: #b03030; }
+    .color-takehome { color: #2858a0; }
+    .stale { opacity: 0.3; }
+    footer { max-width: 1200px; margin: 1.5rem auto 0; padding: 0 1rem 1rem;
+      font-size: 0.75rem; color: #888; line-height: 1.5; }
+    footer a { color: #2858a0; }
+    @media (max-width: 767px) {
+      .two-col { grid-template-columns: 1fr; }
+      #output-area { display: flex; flex-direction: column; }
+      #sankey-container { order: 1; }
+      #output-panels { order: 2; display: flex; flex-direction: column; gap: 0.75rem; }
+      #panel-tax { order: 1; }
+      #panel-alloc { order: 2; }
+      #panel-retire { order: 3; }
+    }
   </style>
 </head>
 <body>
   <main id="app">
-    <header><h1>Solo 401(k) S-Corp Optimizer (2026)</h1></header>
-    <p id="boot-msg">Loading…</p>
+    <header>
+      <h1>Solo 401(k) S-Corp Optimizer <span class="year">(2026)</span></h1>
+      <p class="warning">
+        ⚠️ This tool minimizes <strong>current-year federal tax burden</strong>.
+        401(k) contributions are <strong>tax-deferred, not tax-free</strong> — they will be
+        taxed upon withdrawal at retirement-era marginal rates.
+      </p>
+    </header>
+    <div class="two-col">
+      <section id="inputs">
+        <h2>Inputs</h2>
+        <label>S-Corp net profit (X)
+          <div class="x-row">
+            <input type="range" id="in-x" min="0" max="200000" step="1000" value="100000">
+            <input type="number" id="in-x-num" min="0" max="200000" step="1000" value="100000">
+          </div>
+        </label>
+        <label>Other passive / W-2 income
+          <input type="number" id="in-other" min="0" max="500000" step="500" value="0">
+        </label>
+        <label>Schedule C net profit
+          <input type="number" id="in-schedc" min="0" max="500000" step="500" value="0">
+        </label>
+        <label>Filing status
+          <select id="in-filing">
+            <option value="MFJ" selected>Married filing jointly</option>
+            <option value="Single">Single</option>
+            <option value="HoH">Head of household</option>
+            <option value="QW">Qualifying widow(er)</option>
+          </select>
+        </label>
+        <label>Reasonable comp lower bound (W_min)
+          <input type="number" id="in-wmin" min="0" max="200000" step="500" value="30000">
+          <small class="disclaimer">
+            IRS requires reasonable compensation for active S-Corp owner-employees.
+            Default $30,000 is a generic placeholder.
+            <a href="https://www.irs.gov/businesses/small-businesses-self-employed/s-corporation-compensation-and-medical-insurance-issues"
+               target="_blank" rel="noopener">IRS guidance</a>.
+          </small>
+        </label>
+        <details>
+          <summary>⚙️ Advanced</summary>
+          <label style="margin-top:0.5rem;font-weight:normal;flex-direction:row;align-items:center;gap:0.4rem;">
+            <input type="checkbox" id="in-clean-paycheck" checked>
+            Clean-paycheck constraint (ED ≤ 0.9235·W)
+          </label>
+        </details>
+      </section>
+      <section id="output-area">
+        <div id="sankey-container"><svg id="sankey" height="400" preserveAspectRatio="xMidYMid meet"></svg></div>
+        <div id="infeasibility-banner" hidden>
+          <h3>⚠️ Allocation infeasible</h3>
+          <p id="infeasibility-reason"></p>
+        </div>
+        <div id="output-panels">
+          <section class="panel" id="panel-alloc"><h3>Allocation</h3><table id="tbl-alloc"></table></section>
+          <section class="panel" id="panel-tax"><h3>Tax Breakdown</h3><table id="tbl-tax"></table></section>
+          <section class="panel" id="panel-retire"><h3>Retirement</h3><table id="tbl-retire"></table></section>
+        </div>
+      </section>
+    </div>
   </main>
+  <footer>
+    <p><strong>Scope:</strong> Models <strong>one</strong> S-Corp owner. For households with two S-Corp owners each on their own Solo 401(k), run the tool twice independently. Out of scope: FEIE, catch-up contributions, state tax, NIIT, Additional Medicare, Roth split, HSA, multi-year planning. See <a href="./DESIGN.md" target="_blank">DESIGN.md §7</a>.</p>
+    <p>2026 constants verified against IRS Notice 2025-67, Rev. Proc. 2025-32, SSA 2025-10-24. LP: <a href="https://github.com/IanManske/YALPS" target="_blank">YALPS v0.6.4</a> (MIT). Diagram: <a href="https://github.com/d3/d3-sankey" target="_blank">d3-sankey</a> (ISC).</p>
+  </footer>
 
   <script src="vendor/d3-sankey-bundle.min.js"></script>
   <script src="vendor/yalps.min.js"></script>
@@ -217,9 +332,246 @@ const TestHarness = (function() {
   return { runAll, runCase };
 })();
 
+const Format = (function() {
+  const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  return {
+    money: (v) => fmt.format(Math.round(v)),
+    pct: (v) => (v * 100).toFixed(2) + "%",
+  };
+})();
+
+const SankeyRenderer = (function() {
+  const COLOR = {
+    source: "#888", retire: "#2a7f3a", tax: "#b03030",
+    takehome: "#2858a0", flow: "#aaa",
+  };
+
+  function nodeColor(name) {
+    if (name.startsWith("sink_401k_")) return COLOR.retire;
+    if (name === "sink_takehome") return COLOR.takehome;
+    if (name.startsWith("sink_") && (name.includes("tax") || name.includes("fica"))) return COLOR.tax;
+    if (name.startsWith("src_")) return COLOR.source;
+    return COLOR.flow;
+  }
+
+  const NODE_LABEL = {
+    src_x: "S-Corp profit (X)",
+    src_passive: "Other passive income",
+    src_schedc: "Schedule C net profit",
+    mid_w_with_erfica: "W-2 + Employer FICA",
+    mid_w: "W-2 gross wages",
+    mid_erfica: "Employer FICA",
+    mid_ps: "Profit-sharing",
+    mid_k1: "K-1 distribution",
+    sink_401k_ed: "401(k) ED",
+    sink_401k_ps: "401(k) PS",
+    sink_box1: "Box 1 taxable",
+    sink_fed_tax: "Federal income tax",
+    sink_emp_fica: "Employee FICA",
+    sink_employer_fica: "Employer FICA (paid)",
+    sink_se_tax: "SE tax",
+    sink_takehome: "Take-home (post-tax)",
+  };
+
+  function buildSankey(sol, inputs) {
+    const v = sol.vars, d = sol.derived;
+    const passive = +inputs.otherPassive || 0;
+    const schedC = +inputs.schedC || 0;
+    const schedCNet = Math.max(0, schedC - d.seDed);
+
+    // Proportional fed-tax allocation across TI-contributing streams.
+    const total = d.box1 + v.K1 + passive + schedCNet;
+    const share = (amt) => total > 0 ? d.fedTax * (amt / total) : 0;
+    const taxBox1 = share(d.box1), taxK1 = share(v.K1);
+    const taxPassive = share(passive), taxSchedC = share(schedCNet);
+
+    const nodes = [], id = {};
+    const add = (n) => { id[n] = nodes.length; nodes.push({ name: n }); };
+    add("src_x");
+    if (passive > 0) add("src_passive");
+    if (schedC > 0) add("src_schedc");
+    if (v.W > 0) { add("mid_w_with_erfica"); add("mid_w"); add("mid_erfica"); }
+    if (v.PS > 0) add("mid_ps");
+    if (v.K1 > 0) add("mid_k1");
+    if (v.ED > 0) add("sink_401k_ed");
+    if (v.PS > 0) add("sink_401k_ps");
+    if (d.box1 > 0) add("sink_box1");
+    if (d.fedTax > 0) add("sink_fed_tax");
+    if (d.eeFica > 0) add("sink_emp_fica");
+    if (d.erFica > 0) add("sink_employer_fica");
+    if (d.seTax > 0) add("sink_se_tax");
+    add("sink_takehome");
+
+    const links = [];
+    const link = (from, to, value) => {
+      if (id[from] === undefined || id[to] === undefined || value <= 0.01) return;
+      links.push({ source: id[from], target: id[to], value });
+    };
+
+    if (v.W > 0) {
+      link("src_x", "mid_w_with_erfica", v.W * (1 + TaxConstants.FICA_RATE));
+      link("mid_w_with_erfica", "mid_w", v.W);
+      link("mid_w_with_erfica", "mid_erfica", d.erFica);
+      link("mid_erfica", "sink_employer_fica", d.erFica);
+      link("mid_w", "sink_401k_ed", v.ED);
+      link("mid_w", "sink_box1", d.box1);
+      link("sink_box1", "sink_emp_fica", d.eeFica);
+      link("sink_box1", "sink_fed_tax", taxBox1);
+      link("sink_box1", "sink_takehome", Math.max(0, d.box1 - d.eeFica - taxBox1));
+    }
+    link("src_x", "mid_ps", v.PS);
+    link("mid_ps", "sink_401k_ps", v.PS);
+    link("src_x", "mid_k1", v.K1);
+    link("mid_k1", "sink_fed_tax", taxK1);
+    link("mid_k1", "sink_takehome", Math.max(0, v.K1 - taxK1));
+    if (passive > 0) {
+      link("src_passive", "sink_fed_tax", taxPassive);
+      link("src_passive", "sink_takehome", Math.max(0, passive - taxPassive));
+    }
+    if (schedC > 0) {
+      link("src_schedc", "sink_se_tax", d.seTax);
+      link("src_schedc", "sink_fed_tax", taxSchedC);
+      link("src_schedc", "sink_takehome", Math.max(0, schedC - d.seTax - taxSchedC));
+    }
+    return { nodes, links };
+  }
+
+  function render(svgEl, data) {
+    const svg = d3.select(svgEl);
+    svg.selectAll("*").remove();
+    const W = svgEl.clientWidth || svgEl.parentElement.clientWidth || 800;
+    const H = svgEl.clientHeight || 400;
+    svg.attr("viewBox", `0 0 ${W} ${H}`);
+
+    if (data.nodes.length === 0 || data.links.length === 0) return;
+
+    const sankey = d3.sankey()
+      .nodeWidth(15)
+      .nodePadding(10)
+      .extent([[10, 10], [W - 180, H - 10]]);
+    const graph = sankey({
+      nodes: data.nodes.map((d) => Object.assign({}, d)),
+      links: data.links.map((d) => Object.assign({}, d)),
+    });
+
+    svg.append("g").selectAll("path")
+      .data(graph.links).join("path")
+      .attr("d", d3.sankeyLinkHorizontal())
+      .attr("fill", "none")
+      .attr("stroke", "#999").attr("stroke-opacity", 0.35)
+      .attr("stroke-width", (d) => Math.max(1, d.width));
+
+    const node = svg.append("g").selectAll("g").data(graph.nodes).join("g");
+    node.append("rect")
+      .attr("x", (d) => d.x0).attr("y", (d) => d.y0)
+      .attr("height", (d) => Math.max(1, d.y1 - d.y0))
+      .attr("width", (d) => d.x1 - d.x0)
+      .attr("fill", (d) => nodeColor(d.name))
+      .attr("stroke", "#fff");
+    node.append("text")
+      .attr("x", (d) => d.x0 < W / 2 ? d.x1 + 6 : d.x0 - 6)
+      .attr("y", (d) => (d.y0 + d.y1) / 2)
+      .attr("dy", "0.35em")
+      .attr("text-anchor", (d) => d.x0 < W / 2 ? "start" : "end")
+      .style("font-size", "11px")
+      .style("font-family", "ui-monospace, monospace")
+      .text((d) => `${NODE_LABEL[d.name] || d.name} ($${Math.round(d.value).toLocaleString()})`);
+  }
+
+  return { buildSankey, render };
+})();
+
 const App = (function() {
   function isTestMode() {
     return new URLSearchParams(window.location.search).get("test") === "1";
+  }
+
+  function readInputs() {
+    return {
+      X: +document.querySelector("#in-x-num").value,
+      otherPassive: +document.querySelector("#in-other").value,
+      schedC: +document.querySelector("#in-schedc").value,
+      filingStatus: document.querySelector("#in-filing").value,
+      wMin: +document.querySelector("#in-wmin").value,
+      cleanPaycheck: document.querySelector("#in-clean-paycheck").checked,
+    };
+  }
+
+  function onInputChange() {
+    const inputs = readInputs();
+    const result = YALPS.solve(LPModel.buildModel(inputs));
+    const sol = LPModel.extractSolution(result, inputs);
+    renderOutputs(sol, inputs);
+  }
+
+  function renderOutputs(sol, inputs) {
+    const banner = document.querySelector("#infeasibility-banner");
+    const panels = document.querySelector("#output-panels");
+    const sankey = document.querySelector("#sankey-container");
+
+    if (sol.status !== "optimal") {
+      banner.hidden = false;
+      sankey.classList.add("stale");
+      panels.classList.add("stale");
+      const minX = (inputs.wMin * (1 + TaxConstants.FICA_RATE)).toFixed(0);
+      document.querySelector("#infeasibility-reason").textContent =
+        `W_min ($${inputs.wMin.toLocaleString()}) requires X ≥ $${(+minX).toLocaleString()} ` +
+        `but X = $${inputs.X.toLocaleString()}. Lower W_min or raise X.`;
+      return;
+    }
+    banner.hidden = true;
+    sankey.classList.remove("stale");
+    panels.classList.remove("stale");
+
+    renderAllocTable(sol, inputs);
+    renderTaxTable(sol, inputs);
+    renderRetireTable(sol, inputs);
+
+    const svg = document.querySelector("#sankey");
+    SankeyRenderer.render(svg, SankeyRenderer.buildSankey(sol, inputs));
+  }
+
+  function buildRow(label, value, cls = "") {
+    return `<tr class="${cls}"><td>${label}</td><td class="num">${value}</td></tr>`;
+  }
+
+  function renderAllocTable(sol, inputs) {
+    const v = sol.vars, d = sol.derived, F = Format.money;
+    document.querySelector("#tbl-alloc").innerHTML =
+      buildRow("W-2 gross wages", F(v.W)) +
+      buildRow("↳ ED (pre-tax 401k)", `<span class="color-retire">${F(v.ED)}</span>`, "indent") +
+      buildRow("↳ Box 1 (taxable)", F(d.box1), "indent") +
+      buildRow("Profit-sharing → 401k", `<span class="color-retire">${F(v.PS)}</span>`) +
+      buildRow("Employer FICA (S-Corp cost)", `<span class="color-tax">${F(d.erFica)}</span>`) +
+      buildRow("K-1 distribution", F(v.K1)) +
+      buildRow("<strong>Sum (= X)</strong>", `<strong>${F(inputs.X)}</strong>`, "total");
+  }
+
+  function renderTaxTable(sol, inputs) {
+    const v = sol.vars, d = sol.derived, F = Format.money;
+    document.querySelector("#tbl-tax").innerHTML =
+      buildRow("AGI", F(d.agi)) +
+      buildRow("Standard deduction", `(${F(d.stdDed)})`) +
+      buildRow("§199A QBI deduction", `(${F(v.QBI)})`) +
+      buildRow("Taxable income", F(v.TI)) +
+      buildRow("Federal income tax", `<span class="color-tax">${F(d.fedTax)}</span>`) +
+      buildRow("Employee FICA", `<span class="color-tax">${F(d.eeFica)}</span>`) +
+      buildRow("Employer FICA", `<span class="color-tax">${F(d.erFica)}</span>`) +
+      buildRow("SE tax (on SchedC)", `<span class="color-tax">${F(d.seTax)}</span>`) +
+      buildRow("<strong>Total tax</strong>", `<strong class="color-tax">${F(d.totalTax)}</strong>`, "total") +
+      buildRow("ETR vs gross income", Format.pct(d.etrVsGross)) +
+      buildRow("ETR vs taxable income", v.TI > 0 ? Format.pct(d.etrVsTi) : "—");
+  }
+
+  function renderRetireTable(sol, inputs) {
+    const v = sol.vars, d = sol.derived, F = Format.money;
+    const pct = inputs.X > 0 ? d.retirementTotal / inputs.X : 0;
+    document.querySelector("#tbl-retire").innerHTML =
+      buildRow("Employee deferral", `<span class="color-retire">${F(v.ED)}</span>`) +
+      buildRow("Profit-sharing", `<span class="color-retire">${F(v.PS)}</span>`) +
+      buildRow("<strong>Total tax-deferred</strong>", `<strong class="color-retire">${F(d.retirementTotal)}</strong>`, "total") +
+      buildRow("% of pre-comp profit (X)", Format.pct(pct)) +
+      `<tr><td colspan="2" class="note">Tax-deferred ≠ tax-saved. Withdrawals are taxed as ordinary income at retirement-era marginal rates.</td></tr>`;
   }
 
   function renderTestResults() {
@@ -227,7 +579,7 @@ const App = (function() {
     container.innerHTML = "<h1>Test Results</h1><p id='test-summary'>Running…</p><pre id='test-output' style='font-family:ui-monospace,Menlo,monospace;font-size:13px;'></pre>";
     try {
       const { total, passed, results } = TestHarness.runAll();
-      const lines = results.map(r =>
+      const lines = results.map((r) =>
         r.pass
           ? `  \u2713 Test ${String(r.id).padStart(2)}: ${r.name}`
           : `  \u2717 Test ${String(r.id).padStart(2)}: ${r.name}\n      ${r.reason}`
@@ -244,14 +596,28 @@ const App = (function() {
   }
 
   function init() {
-    if (isTestMode()) {
-      renderTestResults();
-      return;
+    if (isTestMode()) { renderTestResults(); return; }
+
+    const xSlider = document.querySelector("#in-x");
+    const xNum = document.querySelector("#in-x-num");
+    xSlider.addEventListener("input", () => { xNum.value = xSlider.value; onInputChange(); });
+    xNum.addEventListener("input", () => { xSlider.value = xNum.value; onInputChange(); });
+    for (const sel of ["#in-other", "#in-schedc", "#in-wmin"]) {
+      document.querySelector(sel).addEventListener("input", onInputChange);
     }
-    document.querySelector("#boot-msg").textContent = "LP core ready. UI pending (Tasks 10+).";
+    document.querySelector("#in-filing").addEventListener("change", onInputChange);
+    document.querySelector("#in-clean-paycheck").addEventListener("change", onInputChange);
+
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(onInputChange, 100);
+    });
+
+    onInputChange();
   }
 
-  return { init };
+  return { init, onInputChange, readInputs };
 })();
 
 document.addEventListener("DOMContentLoaded", App.init);
