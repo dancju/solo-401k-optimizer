@@ -287,7 +287,7 @@ Sankey shows the flow of money from sources → sinks. Designed so every node sa
 
 | ID | Label | Type | Value |
 |---|---|---|---|
-| `src_x` | S-Corp profit (X) | source | X |
+| `src_x` | S-Corp profit | source | X |
 | `src_ext_passive` | Other passive income | source | OtherIncome_passive |
 | `src_schedc` | Schedule C net profit | source | SchedC |
 | `mid_w` | W-2 gross wages (paid to owner) | flow-through | W |
