@@ -122,7 +122,7 @@
     </div>
   </main>
   <footer>
-    <p><strong>Scope:</strong> Models <strong>one</strong> S-Corp owner. For households with two S-Corp owners each on their own Solo 401(k), run the tool twice independently. Out of scope: FEIE, catch-up contributions, state tax, NIIT, Additional Medicare, Roth split, HSA, multi-year planning.</p>
+    <p><strong>Scope:</strong> Models <strong>one</strong> S-Corp owner. For households with two S-Corp owners each on their own Solo 401(k), run the tool twice independently. Out of scope: FEIE, catch-up contributions, state tax, NIIT, Additional Medicare, Roth split, HSA / §125 cafeteria / self-employed health insurance, multi-year planning.</p>
     <p>2026 constants verified against IRS Notice 2025-67, Rev. Proc. 2025-32, SSA 2025-10-24. LP: <a href="https://github.com/IanManske/YALPS" target="_blank">YALPS v0.6.4</a> (MIT). Diagram: <a href="https://github.com/d3/d3-sankey" target="_blank">d3-sankey</a> (ISC). Source: <a href="https://github.com/dancju/solo-401k-optimizer" target="_blank">github.com/dancju/solo-401k-optimizer</a>.</p>
   </footer>
 
@@ -551,7 +551,8 @@ const App = (function() {
       buildRow("SE tax (on SchedC)", `<span class="color-tax">${F(d.seTax)}</span>`) +
       buildRow("<strong>Total tax</strong>", `<strong class="color-tax">${F(d.totalTax)}</strong>`, "total") +
       buildRow("ETR vs gross income", Format.pct(d.etrVsGross)) +
-      buildRow("ETR vs taxable income", v.TI > 0 ? Format.pct(d.etrVsTi) : "—");
+      buildRow("ETR vs taxable income", v.TI > 0 ? Format.pct(d.etrVsTi) : "—") +
+      `<tr><td colspan="2" class="note">Assumes TI below §199A phase-in threshold ($403,500 MFJ for 2026). SSTB / W-2 wage / UBIA limits above this are not modeled.</td></tr>`;
   }
 
   function renderRetireTable(sol, inputs) {
