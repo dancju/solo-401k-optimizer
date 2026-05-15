@@ -21,7 +21,12 @@ Given the user's S-Corp net profit (before owner compensation), filing status, a
 
 **⚠️ Important caveat — current-year vs lifetime tax:** This tool minimizes **current-year tax**. 401(k) contributions (`ED` + `PS`) are **tax-deferred, not tax-saved** — they reduce 2026 taxable income but will be taxed upon withdrawal at retirement-era marginal rates. If your expected retirement marginal rate is **higher** than your current marginal rate (e.g., you're in 12% today due to deductions but expect 22%+ in retirement), over-deferring increases lifetime tax. Interpret the "optimal" output as the **current-year tax minimum**, not the lifetime tax minimum.
 
-**Scope: single S-Corp owner.** The LP models one S-Corp owner's allocation. For households where two spouses each run their own S-Corp with separate Solo 401(k)s, run the tool twice independently and aggregate manually (per-individual §402(g) / §415(c) caps cannot legally be "doubled" inside a single LP).
+**Scope: one S-Corp.** The LP models a single S-Corp's allocation. Two operating modes:
+
+- **Single owner** (default): one W-2 employee + one Solo 401(k) participant. All per-individual caps apply.
+- **Both spouses on payroll** (toggle): two W-2 employees of the same S-Corp, each contributing to the Solo 401(k). Under the **symmetric W-2 assumption** (W_o = W_s, ED_o = ED_s, PS_o = PS_s), aggregate W is used as the single LP decision variable; §402(g) ED cap and §415(c) annual addition cap are auto-doubled. K-1 remains owner-only (spouse holds no shares). Other rates (PS rate 0.25, FICA 0.0765, SE rate 0.153) and joint constants (Std Ded MFJ, MFJ brackets, QBI threshold) are unchanged — they already represent joint or rate-based values.
+
+For households where two spouses run **separate** S-Corps with **separate** Solo 401(k) plans, run the tool twice independently.
 
 ### 1.2 In scope
 
@@ -80,7 +85,8 @@ Total: **11 decision variables**.
 | `OtherIncome_passive` | $ | 0–500,000, default 0 | Joint passive / W-2 income from other sources; not QBI-eligible |
 | `SchedC_NetProfit` | $ | 0–500,000, default 0 | Joint Schedule C net profit; subject to SE tax; QBI-eligible |
 | `FilingStatus` | enum | MFJ / Single / HoH / QW, default MFJ | Determines std deduction + bracket widths |
-| `W_min` | $ | 0–200,000, default 30,000 | Reasonable comp lower bound |
+| `bothSpouses` | bool | default `false` | If `true`, doubles `ED_MAX` and `SEC415_CAP` for symmetric MFJ 2-spouse-on-payroll case (§1.1) |
+| `W_min` | $ | 0–200,000, default 30,000 | Reasonable comp lower bound (household total if `bothSpouses=true`) |
 
 > **Note on slider top X = $200k**: Chosen to keep `W ≤ $184,500` SS wage base in worst-case (`W = X/1.0765 ≈ $185,800` at X=$200k, marginally over; ≤ $80 FICA overestimate). For larger X scenarios, see §7 boundary note.
 
@@ -137,13 +143,13 @@ budget:        1.0765 · W + PS + K1 = X
                  # 1.0765·W = W + employer FICA (7.65%); both are S-Corp expenses
                  # PS contribution is also S-Corp expense → reduces K1
 
-ED_legal:      ED ≤ 24500                                  # §402(g)(1)
+ED_legal:      ED ≤ ED_MAX · (bothSpouses ? 2 : 1)          # §402(g)(1); ×2 in 2-spouse mode
 ED_comp:       ED ≤ W                                       # §402(g) 100%-of-comp
 ED_paycheck:   ED ≤ 0.9235 · W                              # clean-paycheck (take-home ≥ 0); toggleable
 
-PS_max:        PS ≤ 0.25 · W                                # §404(a) 25% of W (S-Corp owner-employee)
+PS_max:        PS ≤ 0.25 · W                                # §404(a) 25% of W (rate; no ×2)
 
-sec415_dollar: ED + PS ≤ 72000                              # §415(c)(1)(A) dollar limit
+sec415_dollar: ED + PS ≤ SEC415_CAP · (bothSpouses ? 2 : 1) # §415(c)(1)(A); ×2 in 2-spouse mode
 sec415_comp:   ED + PS ≤ W                                  # §415(c)(1)(B) 100%-of-comp limit
                                                             # §415 comp = W-2 wages for S-Corp owner;
                                                             # includes ED per §415(c)(3)(D)
@@ -218,6 +224,7 @@ Simplified (drop SE_tax as it's a constant in LP):
 | Other passive / W-2 income | Number | 0–500,000 | 0 |
 | Schedule C net profit | Number | 0–500,000 | 0 |
 | Filing status | Selector | MFJ / Single / HoH / QW | MFJ |
+| Both spouses on Solo 401(k) payroll | Checkbox | On/Off | Off |
 | Reasonable comp lower bound `W_min` | Number | 0–200,000 | 30,000 |
 | ⚙️ Advanced toggle | Disclosure | — | collapsed |
 

@@ -81,6 +81,15 @@
             <option value="QW">Qualifying widow(er)</option>
           </select>
         </label>
+        <label style="flex-direction:row;align-items:center;gap:0.4rem;">
+          <input type="checkbox" id="in-married-both">
+          Both spouses on Solo 401(k) payroll
+        </label>
+        <small class="disclaimer">
+          Doubles §402(g) ED limit ($24,500 → $49,000) and §415(c) annual addition cap
+          ($72,000 → $144,000). Assumes <strong>symmetric W-2 wages</strong>
+          (W_o = W_s). Spouse must be a bona fide employee performing reasonable services.
+        </small>
         <label>Reasonable comp lower bound (W_min)
           <input type="number" id="in-wmin" min="0" max="200000" step="500" value="30000">
           <small class="disclaimer">
@@ -166,6 +175,9 @@ const LPModel = (function() {
     const filingStatus = inputs.filingStatus || "MFJ";
     const wMin = +inputs.wMin || 0;
     const cleanPaycheck = inputs.cleanPaycheck !== false;
+    const peopleFactor = inputs.bothSpouses ? 2 : 1;
+    const edMax = TC.ED_MAX * peopleFactor;
+    const sec415Cap = TC.SEC415_CAP * peopleFactor;
 
     const seBase = TC.SE_INCOME_FACTOR * schedC;
     const seTax = TC.SE_TAX_RATE * seBase;
@@ -197,10 +209,10 @@ const LPModel = (function() {
     const constraints = {
       budget:        { equal: X },                                   // 1.0765·W + PS + K1 = X
       bracket_sum:   { equal: 0 },                                   // Σt_i - TI = 0
-      ED_legal:      { max: TC.ED_MAX },                             // §402(g)(1) dollar
+      ED_legal:      { max: edMax },                                 // §402(g)(1) dollar (×2 if bothSpouses)
       ED_comp:       { max: 0 },                                     // §402(g): ED ≤ W
       PS_max:        { max: 0 },                                     // §404(a): PS ≤ 0.25·W
-      sec415_dollar: { max: TC.SEC415_CAP },                         // §415(c)(1)(A)
+      sec415_dollar: { max: sec415Cap },                             // §415(c)(1)(A) (×2 if bothSpouses)
       sec415_comp:   { max: 0 },                                     // §415(c)(1)(B): ED+PS ≤ W
       QBI_base:      { max: TC.QBI_RATE * (schedC - seDed) },        // QBI - 0.20·K1 ≤ 0.20·(SchedC - SE_ded)
       QBI_TI_cap:    { max: 0 },                                     // QBI - 0.20·TI_pre ≤ 0
@@ -472,6 +484,7 @@ const App = (function() {
       filingStatus: document.querySelector("#in-filing").value,
       wMin: +document.querySelector("#in-wmin").value,
       cleanPaycheck: document.querySelector("#in-clean-paycheck").checked,
+      bothSpouses: document.querySelector("#in-married-both").checked,
     };
   }
 
@@ -581,6 +594,7 @@ const App = (function() {
     }
     document.querySelector("#in-filing").addEventListener("change", onInputChange);
     document.querySelector("#in-clean-paycheck").addEventListener("change", onInputChange);
+    document.querySelector("#in-married-both").addEventListener("change", onInputChange);
 
     let resizeTimer = null;
     window.addEventListener("resize", () => {
