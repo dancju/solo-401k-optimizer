@@ -45,7 +45,6 @@
     .panel .note { font-size: 0.7rem; color: #888; padding-top: 0.5rem; line-height: 1.3; }
     .color-retire { color: #2a7f3a; }
     .color-tax { color: #b03030; }
-    .color-takehome { color: #2858a0; }
     .stale { opacity: 0.3; }
     footer { max-width: 1200px; margin: 1.5rem auto 0; padding: 0 1rem 1rem;
       font-size: 0.75rem; color: #888; line-height: 1.5; }
@@ -342,13 +341,11 @@ const Format = (function() {
 
 const SankeyRenderer = (function() {
   const COLOR = {
-    source: "#888", retire: "#2a7f3a", tax: "#b03030",
-    takehome: "#2858a0", flow: "#aaa",
+    source: "#888", retire: "#2a7f3a", tax: "#b03030", flow: "#aaa",
   };
 
   function nodeColor(name) {
-    if (name.startsWith("sink_401k_")) return COLOR.retire;
-    if (name === "sink_takehome") return COLOR.takehome;
+    if (name.startsWith("sink_401k_") || name === "sink_takehome") return COLOR.retire;
     if (name.startsWith("sink_") && (name.includes("tax") || name.includes("fica"))) return COLOR.tax;
     if (name.startsWith("src_")) return COLOR.source;
     return COLOR.flow;
@@ -367,7 +364,7 @@ const SankeyRenderer = (function() {
     sink_emp_fica: "Employee FICA",
     sink_employer_fica: "Employer FICA",
     sink_se_tax: "SE tax",
-    sink_takehome: "Take-home (post-tax)",
+    sink_takehome: "Take-home",
   };
 
   function buildSankey(sol, inputs) {

@@ -293,7 +293,7 @@ Sankey shows the flow of money from sources → sinks. Designed so every node sa
 | `sink_emp_fica` | Employee FICA | sink | 0.0765·W |
 | `sink_employer_fica` | Employer FICA | sink | 0.0765·W |
 | `sink_se_tax` | SE tax (to IRS) | sink | SE_tax |
-| `sink_takehome` | Take-home (post-tax cash) | sink | (residual) |
+| `sink_takehome` | Take-home | sink | (residual) |
 
 **Edges (every flow-through node balances):**
 
@@ -330,9 +330,8 @@ src_schedc         → sink_takehome      : SchedC − SE_tax − fed_tax_share
 
 Colors:
 - Sources: gray
-- Retirement sinks: green (tax-deferred wealth)
+- Retirement sinks + take-home: green (value retained — deferred wealth or post-tax cash)
 - Tax sinks: red (cost)
-- Take-home: blue (cash)
 
 ### 3.4 Layout
 
