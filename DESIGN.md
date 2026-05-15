@@ -291,7 +291,7 @@ Sankey shows the flow of money from sources → sinks. Designed so every node sa
 | `sink_box1` | Box 1 taxable income | flow-through | W − ED |
 | `sink_fed_tax` | Federal income tax | sink | FedTax |
 | `sink_emp_fica` | Employee FICA | sink | 0.0765·W |
-| `sink_employer_fica` | Employer FICA (to IRS) | sink | 0.0765·W |
+| `sink_employer_fica` | Employer FICA | sink | 0.0765·W |
 | `sink_se_tax` | SE tax (to IRS) | sink | SE_tax |
 | `sink_takehome` | Take-home (post-tax cash) | sink | (residual) |
 
