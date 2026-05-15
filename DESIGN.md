@@ -224,8 +224,7 @@ Simplified (drop SE_tax as it's a constant in LP):
 **Disclaimer under `W_min` input:**
 > IRS requires reasonable compensation for active S-Corp owner-employees performing services for the corporation. The default $30,000 is a generic placeholder — actual reasonable comp depends on your role, hours, industry, and geography. Setting `W_min = 0` is legal but creates IRS audit risk. See [IRS S Corporation Compensation guidance](https://www.irs.gov/businesses/small-businesses-self-employed/s-corporation-compensation-and-medical-insurance-issues).
 
-**Disclaimer under header (top of page):**
-> ⚠️ This tool minimizes **current-year federal tax burden**. 401(k) contributions are **tax-deferred, not tax-free** — they'll be taxed upon withdrawal at retirement-era marginal rates. Optimal allocation here ≠ lifetime tax minimum.
+The current-year-vs-lifetime-tax caveat is conveyed via Panel C footer note ("Tax-deferred ≠ tax-saved…") rather than a top banner, since the message is most relevant next to the retirement deferral total.
 
 Advanced section (collapsed by default):
 - Clean-paycheck constraint (toggle, default on; if off, allows `ED > 0.9235·W` with FICA shortfall covered from K1)
@@ -342,7 +341,6 @@ Single-page, two columns on desktop, stacked on mobile.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Solo 401(k) S-Corp Optimizer (2026)                        │
-│  ⚠️ Current-year tax minimum, not lifetime minimum           │
 ├──────────────────┬──────────────────────────────────────────┤
 │  Inputs          │  Sankey diagram                          │
 │                  │  (full-width, ~400px tall)               │
@@ -363,7 +361,7 @@ Single-page, two columns on desktop, stacked on mobile.
 
 **Mobile (< 768px), stacked top-to-bottom in this order:**
 
-1. Header (with current-year-tax-only disclaimer)
+1. Header
 2. Inputs panel
 3. Sankey diagram (full width, ~300px tall)
 4. Tax breakdown (Panel B — most informative)
