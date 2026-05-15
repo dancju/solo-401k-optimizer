@@ -358,7 +358,6 @@ const SankeyRenderer = (function() {
     src_x: "S-Corp profit (X)",
     src_passive: "Other passive income",
     src_schedc: "Schedule C net profit",
-    mid_w_with_erfica: "W-2 + Employer FICA",
     mid_w: "W-2 gross wages",
     mid_erfica: "Employer FICA",
     mid_ps: "Profit-sharing",
@@ -390,7 +389,7 @@ const SankeyRenderer = (function() {
     add("src_x");
     if (passive > 0) add("src_passive");
     if (schedC > 0) add("src_schedc");
-    if (v.W > 0) { add("mid_w_with_erfica"); add("mid_w"); add("mid_erfica"); }
+    if (v.W > 0) { add("mid_w"); add("mid_erfica"); }
     if (v.PS > 0) add("mid_ps");
     if (v.K1 > 0) add("mid_k1");
     if (v.ED > 0) add("sink_401k_ed");
@@ -409,9 +408,8 @@ const SankeyRenderer = (function() {
     };
 
     if (v.W > 0) {
-      link("src_x", "mid_w_with_erfica", v.W * (1 + TaxConstants.FICA_RATE));
-      link("mid_w_with_erfica", "mid_w", v.W);
-      link("mid_w_with_erfica", "mid_erfica", d.erFica);
+      link("src_x", "mid_w", v.W);
+      link("src_x", "mid_erfica", d.erFica);
       link("mid_erfica", "sink_employer_fica", d.erFica);
       link("mid_w", "sink_401k_ed", v.ED);
       link("mid_w", "sink_box1", d.box1);

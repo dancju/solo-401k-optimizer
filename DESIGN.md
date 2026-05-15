@@ -284,7 +284,6 @@ Sankey shows the flow of money from sources → sinks. Designed so every node sa
 | `src_x` | S-Corp profit (X) | source | X |
 | `src_ext_passive` | Other passive income | source | OtherIncome_passive |
 | `src_schedc` | Schedule C net profit | source | SchedC |
-| `mid_w_with_erfica` | W-2 wages + Employer FICA | flow-through | 1.0765·W |
 | `mid_w` | W-2 gross wages (paid to owner) | flow-through | W |
 | `mid_erfica` | Employer FICA pool | flow-through | 0.0765·W |
 | `mid_ps` | Employer profit-sharing pool | flow-through | PS |
@@ -301,12 +300,11 @@ Sankey shows the flow of money from sources → sinks. Designed so every node sa
 **Edges (every flow-through node balances):**
 
 ```
-src_x              → mid_w_with_erfica  : 1.0765·W
+src_x              → mid_w              : W
+src_x              → mid_erfica         : 0.0765·W
 src_x              → mid_ps             : PS
 src_x              → mid_k1             : K1
-
-mid_w_with_erfica  → mid_w              : W
-mid_w_with_erfica  → mid_erfica         : 0.0765·W           ✓ balance: 1.0765·W in = W + 0.0765·W out
+                     # src_x balance: W + 0.0765·W + PS + K1 = 1.0765·W + PS + K1 = X ✓
 
 mid_erfica         → sink_employer_fica : 0.0765·W
 
@@ -329,6 +327,8 @@ src_schedc         → sink_se_tax        : SE_tax
 src_schedc         → sink_fed_tax       : (SchedC's share of fed tax, on SchedC − SE_ded portion)
 src_schedc         → sink_takehome      : SchedC − SE_tax − fed_tax_share
 ```
+
+**Why `src_x` balances**: outflows sum to `W + 0.0765·W + PS + K1 = 1.0765·W + PS + K1 = X` (the budget constraint).
 
 **Why `sink_box1` balances**: Inflow = `W − ED`. Outflow includes employee FICA `0.0765·W`. For balance, need `W − ED ≥ 0.0765·W`, i.e., `ED ≤ 0.9235·W` — exactly the clean-paycheck constraint. When clean-paycheck is off, take-home can go negative (covered from K1 elsewhere) — Sankey then shows an explicit "FICA shortfall from K1" edge.
 
